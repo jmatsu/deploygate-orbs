@@ -1,0 +1,61 @@
+version: 2.1
+
+description: This is an inline job
+
+commands:
+  upload-app:
+    parameters:
+      api_key:
+        type: string
+      owner_name:
+        type: string
+      app_path:
+        type: string
+      visibility:
+        type: enum
+        default: "private"
+        enum: ["private", "public"]
+      message:
+        type: string
+        default: ""
+      distribution_key:
+        type: string
+        default: ""
+      distribution_name:
+        type: string
+        default: ""
+      release_note:
+        type: string
+        default: ""
+      disable_notify:
+        type: boolean
+        default: false
+    steps:
+      - run:
+        name: Distribute your app to DeployGate
+        command:
+          export api_key="<<parameters.api_key>>"
+          export owner_name="<<parameters.owner_name>>"
+          export app_path="<<parameters.app_path>>"
+          export visibility="<<parameters.visibility>>"
+          export message="<<parameters.message>>"
+          export distribution_key="<<parameters.distribution_key>>"
+          export distribution_name="<<parameters.distribution_name>>"
+          export release_note="<<parameters.release_note>>"
+          export disable_notify="<<parameters.disable_notify>>"
+
+          cat '<%= File.read('upload-step.bash').each_line.reject { |l| /^\s*#/ =~ l }.join("").inspect %>' | bash
+executors:
+  default: # need to have curl, ruby
+    parameters:
+      tag:
+        type: string
+    docker:
+      - image: circleci/ruby:<<parameters.tag>>
+
+workflows:
+  example:
+    jobs:
+      - upload-app-job:
+          executor: upload-app/default
+          name: use_default_executor

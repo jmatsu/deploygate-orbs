@@ -1,0 +1,61 @@
+version: 2.1
+
+description: This is an inline job
+
+commands:
+  upload-app:
+    parameters:
+      api_key:
+        type: string
+      owner_name:
+        type: string
+      app_path:
+        type: string
+      visibility:
+        type: enum
+        default: "private"
+        enum: ["private", "public"]
+      message:
+        type: string
+        default: ""
+      distribution_key:
+        type: string
+        default: ""
+      distribution_name:
+        type: string
+        default: ""
+      release_note:
+        type: string
+        default: ""
+      disable_notify:
+        type: boolean
+        default: false
+    steps:
+      - run:
+        name: Distribute your app to DeployGate
+        command:
+          export api_key="<<parameters.api_key>>"
+          export owner_name="<<parameters.owner_name>>"
+          export app_path="<<parameters.app_path>>"
+          export visibility="<<parameters.visibility>>"
+          export message="<<parameters.message>>"
+          export distribution_key="<<parameters.distribution_key>>"
+          export distribution_name="<<parameters.distribution_name>>"
+          export release_note="<<parameters.release_note>>"
+          export disable_notify="<<parameters.disable_notify>>"
+
+          cat '"\nMY_VERSION=0.0.1\n\nset -ex\n\nupload_app() {\n  set +ex\n\n  local -r all_fields=(\n      \"file=@$app_path\"\n      \"message=$message\"\n      \"distribution_key=$distribution_key\"\n      \"distribution_name=$distribution_name\"\n      \"release_note=$release_note\"\n      \"disable_notify=$disable_notify\"\n      \"visibility=$visibility\"\n  )\n\n  local field= fields=()\n\n  for field in \"${all_fields[@]}\"; do\n    if [[ \"$field\" =~ ^.*=$ ]]; then\n      continue\n    else\n      fields+=(\"-F\")\n      fields+=(\"$field\")\n    fi\n  done\n\n  curl -# -X POST \\\n    -H \"Authorization: token $api_key\" \\\n    -A \"DeployGateUploadAppCircleCIOrb/$MY_VERSION\" \\\n    \"${fields[@]}\" \\\n    \"https://deploygate.com/api/users/$owner_name/apps\" > output.json\n\n  set -ex\n  return 0\n}\n\nparse_error_field() {\n  cat - | ruby -rjson -ne 'puts JSON.parse($_)[\"error\"]'\n}\n\nupload_app # this will create the `output.json``\n\nif [[ \"$(cat output.json | parse_error_field)\" == \"false\" ]]; then\n  cat output.json\n  exit 0\nelse\n  cat output.json\n  exit 1\nfi"' | bash
+executors:
+  default: # need to have curl, ruby
+    parameters:
+      tag:
+        type: string
+    docker:
+      - image: circleci/ruby:<<parameters.tag>>
+
+workflows:
+  example:
+    jobs:
+      - upload-app-job:
+          executor: upload-app/default
+          name: use_default_executor

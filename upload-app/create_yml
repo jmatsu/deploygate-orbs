@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -eu
+
+ruby -rerb -e "puts ERB.new(File.read('./orb.erb.yml')).result" > orb.yml

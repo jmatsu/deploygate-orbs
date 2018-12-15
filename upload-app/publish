@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -eu
+
+create_yml
+circleci orb publish ./orb.yml jmatsu-sandbox/deploygate-upload-app@dev:first --token $CIRCLECI_TOKEN
