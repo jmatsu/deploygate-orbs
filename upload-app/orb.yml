@@ -1,39 +1,104 @@
+---
 version: 2.1
-
-description: This is an inline job
-
+description: "To upload your iOS/Android application to DeployGate. \nDeployGate enable
+  to share in-development apps with others instantly. \nFor more detail, please read
+  references in [DeployGate.com](https://deploygate.com/?locale=en)\n"
+examples:
+  upload-app-step:
+    description: You can upload apps with embedding into the current your job
+    usage:
+      orbs:
+        deploygate: jmatsu-sandbox/deploygate-upload-app@dev:first
+      version: 2.1
+      jobs:
+        build:
+          docker:
+          - image: circleci/android:api-28-alpha
+          steps:
+          - checkout
+          - run: "./gradlew assembleDebug"
+          - deploygate/upload-app:
+              api_key: "$DG_API_TOKEN"
+              owner_name: "$DG_APP_OWNER"
+              app_path: app/build/outputs/apk/debug/app-debug.apk
+              visibility: public
+      workflows:
+        deployment:
+          jobs:
+          - build
+  upload-app-workflow:
+    description: You can upload apps with pre/post steps
+    usage:
+      orbs:
+        deploygate: jmatsu-sandbox/deploygate-upload-app@dev:first
+      version: 2.1
+      workflows:
+        deployment:
+          jobs:
+          - deploygate/upload-app-job:
+              api_key: "$DG_API_TOKEN"
+              owner_name: "$DG_APP_OWNER"
+              app_path: app/build/outputs/apk/debug/app-debug.apk
+              visibility: public
+              pre-upload-app-steps:
+              - checkout
+              - run: "./gradlew assembleDebug"
 commands:
   upload-app:
     parameters:
+      version:
+        type: string
+        default: 0.0.1
       api_key:
         type: string
+        description: The authorization token to be used when uploading app
       owner_name:
         type: string
+        description: The owner name of this application
       app_path:
         type: string
+        description: App's binary file (IPA/APK) to be uploaded. Cannot use '~' for
+          now so please use $HOME instead
       visibility:
         type: enum
-        default: "private"
-        enum: ["private", "public"]
+        default: private
+        enum:
+        - private
+        - public
+        description: |
+          For newly uploaded apps only, specify the app's name and icon privacy settings to either private or public.
+          This is just only for visibility on your apps list in profile page, not for allowing download or install by anonymous.
+          Download or install apps is allowd only your app's member or invitee who knows your generated public link.
+          By default, Personal Free Plans are set to public, and all other plans are set to private.
+          This setting does not apply for updates, and any changes made will be ignored.
       message:
         type: string
-        default: ""
+        default: ''
+        description: A short message to explain this version
       distribution_key:
         type: string
-        default: ""
+        default: ''
+        description: |
+          By specifying the distribution page's hash, that distribution page will be updated simultaneously.
+          The "xxxx" portion of the distributed page's URL like https://deploygate.com/distributions/xxxx
       distribution_name:
         type: string
-        default: ""
+        default: ''
+        description: "Specify the name of the updated distribution page. \nIf none
+          exists, a new distribution page will be created. \nPossible uses include
+          creating distribution pages for each Git branch name.\n"
       release_note:
         type: string
-        default: ""
+        default: ''
+        description: Message displayed during distribution page app updates
       disable_notify:
         type: boolean
         default: false
+        description: "(iOS only) A setting of true disables Push notification emails."
     steps:
-      - run:
+    - run:
         name: Distribute your app to DeployGate
-        command:
+        command: |
           export api_key="<<parameters.api_key>>"
           export owner_name="<<parameters.owner_name>>"
           export app_path="<<parameters.app_path>>"
@@ -44,18 +109,83 @@ commands:
           export release_note="<<parameters.release_note>>"
           export disable_notify="<<parameters.disable_notify>>"
 
-          cat '"\nMY_VERSION=0.0.1\n\nset -ex\n\nupload_app() {\n  set +ex\n\n  local -r all_fields=(\n      \"file=@$app_path\"\n      \"message=$message\"\n      \"distribution_key=$distribution_key\"\n      \"distribution_name=$distribution_name\"\n      \"release_note=$release_note\"\n      \"disable_notify=$disable_notify\"\n      \"visibility=$visibility\"\n  )\n\n  local field= fields=()\n\n  for field in \"${all_fields[@]}\"; do\n    if [[ \"$field\" =~ ^.*=$ ]]; then\n      continue\n    else\n      fields+=(\"-F\")\n      fields+=(\"$field\")\n    fi\n  done\n\n  curl -# -X POST \\\n    -H \"Authorization: token $api_key\" \\\n    -A \"DeployGateUploadAppCircleCIOrb/$MY_VERSION\" \\\n    \"${fields[@]}\" \\\n    \"https://deploygate.com/api/users/$owner_name/apps\" > output.json\n\n  set -ex\n  return 0\n}\n\nparse_error_field() {\n  cat - | ruby -rjson -ne 'puts JSON.parse($_)[\"error\"]'\n}\n\nupload_app # this will create the `output.json``\n\nif [[ \"$(cat output.json | parse_error_field)\" == \"false\" ]]; then\n  cat output.json\n  exit 0\nelse\n  cat output.json\n  exit 1\nfi"' | bash
-executors:
-  default: # need to have curl, ruby
+          curl -sL "https://raw.githubusercontent.com/jmatsu/deploygate-orbs/upload-app-<<parameters.version>>/upload-app/upload-step.bash" | bash
+jobs:
+  upload-app-job:
     parameters:
-      tag:
+      version:
         type: string
+        default: 0.0.1
+      api_key:
+        type: string
+        description: The authorization token to be used when uploading app
+      owner_name:
+        type: string
+        description: The owner name of this application
+      app_path:
+        type: string
+        description: App's binary file (IPA/APK) to be uploaded. Cannot use '~' for
+          now so please use $HOME instead
+      visibility:
+        type: enum
+        default: private
+        enum:
+        - private
+        - public
+        description: |
+          For newly uploaded apps only, specify the app's name and icon privacy settings to either private or public.
+          This is just only for visibility on your apps list in profile page, not for allowing download or install by anonymous.
+          Download or install apps is allowd only your app's member or invitee who knows your generated public link.
+          By default, Personal Free Plans are set to public, and all other plans are set to private.
+          This setting does not apply for updates, and any changes made will be ignored.
+      message:
+        type: string
+        default: ''
+        description: A short message to explain this version
+      distribution_key:
+        type: string
+        default: ''
+        description: |
+          By specifying the distribution page's hash, that distribution page will be updated simultaneously.
+          The "xxxx" portion of the distributed page's URL like https://deploygate.com/distributions/xxxx
+      distribution_name:
+        type: string
+        default: ''
+        description: "Specify the name of the updated distribution page. \nIf none
+          exists, a new distribution page will be created. \nPossible uses include
+          creating distribution pages for each Git branch name.\n"
+      release_note:
+        type: string
+        default: ''
+        description: Message displayed during distribution page app updates
+      disable_notify:
+        type: boolean
+        default: false
+        description: "(iOS only) A setting of true disables Push notification emails."
+      executor-name:
+        type: executor
+        default: default
+      pre-upload-app-steps:
+        type: steps
+        default: []
+      post-upload-app-steps:
+        type: steps
+        default: []
+    executor: "<< parameters.executor-name >>"
+    steps:
+    - steps: "<< parameters.pre-upload-app-steps >>"
+    - upload-app:
+        api_key: "<< parameters.api_key >>"
+        owner_name: "<< parameters.owner_name >>"
+        app_path: "<< parameters.app_path >>"
+        visibility: "<< parameters.visibility >>"
+        message: "<< parameters.message >>"
+        distribution_key: "<< parameters.distribution_key >>"
+        distribution_name: "<< parameters.distribution_name >>"
+        release_note: "<< parameters.release_note >>"
+        disable_notify: "<< parameters.disable_notify >>"
+    - steps: "<< parameters.post-upload-app-steps >>"
+executors:
+  default:
     docker:
-      - image: circleci/ruby:<<parameters.tag>>
-
-workflows:
-  example:
-    jobs:
-      - upload-app-job:
-          executor: upload-app/default
-          name: use_default_executor
+    - image: circleci/android:api-28-alpha

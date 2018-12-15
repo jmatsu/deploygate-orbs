@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MY_VERSION="0.0.1"
+MY_VERSION="<%= ENV.fetch('RELEASE_TAG') %>"
 
 set -ex
 
